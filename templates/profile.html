@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card card-custom p-5">
+            <div class="text-center mb-4">
+                <div class="display-1">{% if user.role == 'senior' %}👴{% else %}🚀{% endif %}</div>
+                <h2 class="fw-bold">{{ user.name }}</h2>
+                <span class="badge {% if user.role == 'senior' %}bg-info{% else %}bg-primary{% endif %} mb-3">
+                    {{ user.role.capitalize() }}
+                </span>
+            </div>
+            
+            <h5>À propos de moi</h5>
+            <p class="lead text-muted">{{ user.bio or "Cet utilisateur n'a pas encore rédigé de bio." }}</p>
+            
+            <hr>
+            <div class="d-flex justify-content-between align-items-center">
+                <p class="mb-0"><strong>Email :</strong> {{ user.email }}</p>
+                {% if user.id == current_user.id %}
+                    <a href="{{ url_for('edit_profile') }}" class="btn btn-outline-secondary btn-sm">Modifier mon profil</a>
+                {% endif %}
+            </div>
+            
+            <div class="mt-4">
+                <a href="{{ url_for('dashboard') }}" class="btn btn-light">← Retour au tableau de bord</a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

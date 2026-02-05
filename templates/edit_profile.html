@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card card-custom p-4">
+            <h3>Modifier mon profil</h3>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label">Nom complet</label>
+                    <input type="text" name="name" class="form-control" value="{{ current_user.name }}" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Ma Bio / Mes centres d'intérêt</label>
+                    <textarea name="bio" class="form-control" rows="5">{{ current_user.bio }}</textarea>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">Sauvegarder les modifications</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

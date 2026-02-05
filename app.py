@@ -41,6 +41,9 @@ class Booking(db.Model):
     senior_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # AJOUT : Relation pour accéder directement à l'objet User du senior
+    senior = db.relationship('User', foreign_keys=[senior_id])
+
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -67,6 +70,22 @@ def get_availabilities():
         "start_time": s.start_time.strftime("%Y-%m-%d %H:%M")
     } for s in slots])
 
+@app.route('/profile/<int:user_id>')
+@login_required
+def view_profile(user_id):
+    user = User.query.get_or_404(user_id)
+    return render_template('profile.html', user=user)
+
+@app.route('/profile/edit', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    if request.method == 'POST':
+        current_user.name = request.form['name']
+        current_user.bio = request.form['bio']
+        db.session.commit()
+        flash("Profil mis à jour avec succès !", "success")
+        return redirect(url_for('dashboard'))
+    return render_template('edit_profile.html')
 
 @app.route('/api/bookings', methods=['POST'])
 @login_required

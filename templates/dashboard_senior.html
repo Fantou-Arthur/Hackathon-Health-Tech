@@ -1,34 +1,57 @@
 {% extends "base.html" %}
 {% block content %}
-<h2>Bienvenue, {{ current_user.name }} (Senior)</h2>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Bienvenue, {{ current_user.name }} <span class="badge bg-info">Senior</span></h2>
+    <a href="{{ url_for('edit_profile') }}" class="btn btn-outline-primary">Modifier mon profil</a>
+</div>
+
 <hr>
+
 <div class="row">
     <div class="col-md-7">
-        <h3>Créneaux disponibles</h3>
+        <h3 class="mb-3">Créneaux disponibles</h3>
         <div class="list-group">
             {% for slot in available_slots %}
-            <div class="list-group-item d-flex justify-content-between align-items-center card-custom mb-2">
+            <div class="list-group-item d-flex justify-content-between align-items-center card-custom mb-2 p-3">
                 <div>
-                    <strong>{{ slot.youth.name }}</strong><br>
-                    <small class="text-muted">{{ slot.start_time.strftime('%d/%m/%Y à %H:%M') }}</small>
+                    <a href="{{ url_for('view_profile', user_id=slot.youth.id) }}" class="fw-bold text-decoration-none">
+                        🚀 {{ slot.youth.name }}
+                    </a>
+                    <br>
+                    <small class="text-muted">Propose le : {{ slot.start_time.strftime('%d/%m/%Y à %H:%M') }}</small>
                 </div>
-                <form action="/api/bookings" method="POST">
+
+                <form action="{{ url_for('create_booking_api') }}" method="POST">
                     <input type="hidden" name="availability_id" value="{{ slot.id }}">
-                    <button type="submit" class="btn btn-success btn-sm">Réserver</button>
+                    <button type="submit" class="btn btn-success btn-sm px-3">Réserver</button>
                 </form>
             </div>
             {% else %}
-            <p>Aucun créneau disponible pour le moment.</p>
+            <div class="alert alert-light border">Aucun créneau disponible pour le moment. Revenez plus tard !</div>
             {% endfor %}
         </div>
     </div>
+
     <div class="col-md-5">
-        <h3>Mes Rendez-vous</h3>
-        <ul class="list-group">
-            {% for b in my_bookings %}
-            <li class="list-group-item">Le {{ b.slot.start_time.strftime('%d/%m/%Y') }} avec {{ b.slot.youth.name }}</li>
-            {% endfor %}
-        </ul>
+        <h3 class="mb-3">Mes Rendez-vous</h3>
+        <div class="card card-custom">
+            <ul class="list-group list-group-flush">
+                {% for b in my_bookings %}
+                <li class="list-group-item py-3">
+                    <div class="d-flex w-100 justify-content-between">
+                        <h6 class="mb-1">RDV avec
+                            <a href="{{ url_for('view_profile', user_id=b.slot.youth.id) }}" class="text-primary">
+                                {{ b.slot.youth.name }}
+                            </a>
+                        </h6>
+                    </div>
+                    <p class="mb-1 text-muted small">Le {{ b.slot.start_time.strftime('%d/%m/%Y à %H:%M') }}</p>
+                </li>
+                {% else %}
+                <li class="list-group-item text-center text-muted py-4">Vous n'avez pas encore de réservations.</li>
+                {% endfor %}
+            </ul>
+        </div>
     </div>
 </div>
 {% endblock %}

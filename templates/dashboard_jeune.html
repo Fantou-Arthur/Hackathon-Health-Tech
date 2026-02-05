@@ -30,8 +30,9 @@
                         </td>
                         <td>
                             {% if slot.is_booked %}
-                                {{ slot.booking.senior_id }} {# Dans un vrai projet, on ferait une jointure pour le nom #}
-                                <small class="text-muted">(ID Senior)</small>
+                                <a href="{{ url_for('view_profile', user_id=slot.booking.senior.id) }}" class="text-decoration-none">
+                                    👤 {{ slot.booking.senior.name }}
+                                </a>
                             {% else %}
                                 -
                             {% endif %}
