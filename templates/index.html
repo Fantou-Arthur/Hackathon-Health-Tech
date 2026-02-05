@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="hero text-center bg-light p-5 rounded-3 mb-4">
+    <h1 class="display-4 fw-bold text-primary">GénérIAtion</h1>
+    <p class="lead">Le pont numérique entre l'expérience des aînés et l'énergie de la jeunesse.</p>
+    <div class="mt-4">
+        <a href="{{ url_for('register') }}" class="btn btn-primary btn-lg px-4 me-md-2">Rejoindre l'aventure</a>
+        <a href="{{ url_for('login') }}" class="btn btn-outline-secondary btn-lg px-4">Se connecter</a>
+    </div>
+</div>
+
+<div class="row g-4 py-5">
+    <div class="col-md-6">
+        <div class="card h-100 card-custom p-4">
+            <h3>👵 Pour les Seniors</h3>
+            <p>Besoin d'un coup de main pour l'informatique, une balade ou simplement envie de discuter ? Trouvez un jeune disponible près de chez vous.</p>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card h-100 card-custom p-4">
+            <h3>🚀 Pour les Jeunes</h3>
+            <p>Offrez un peu de votre temps, partagez vos compétences et créez des liens uniques tout en rendant service à votre communauté.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card card-custom p-4">
+            <h2 class="text-center mb-4">Créer un compte</h2>
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label">Nom complet</label>
+                    <input type="text" name="name" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Email</label>
+                    <input type="email" name="email" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Mot de passe</label>
+                    <input type="password" name="password" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Je suis...</label>
+                    <select name="role" class="form-select">
+                        <option value="senior">Un Senior (cherche de l'aide)</option>
+                        <option value="jeune">Un Jeune (propose du temps)</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Bio / Intérêts</label>
+                    <textarea name="bio" class="form-control" rows="3" placeholder="J'aime le jardinage, j'ai besoin d'aide avec mon iPad..."></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary w-100">S'inscrire</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

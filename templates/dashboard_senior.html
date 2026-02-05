@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Bienvenue, {{ current_user.name }} (Senior)</h2>
+<hr>
+<div class="row">
+    <div class="col-md-7">
+        <h3>Créneaux disponibles</h3>
+        <div class="list-group">
+            {% for slot in available_slots %}
+            <div class="list-group-item d-flex justify-content-between align-items-center card-custom mb-2">
+                <div>
+                    <strong>{{ slot.youth.name }}</strong><br>
+                    <small class="text-muted">{{ slot.start_time.strftime('%d/%m/%Y à %H:%M') }}</small>
+                </div>
+                <form action="/api/bookings" method="POST">
+                    <input type="hidden" name="availability_id" value="{{ slot.id }}">
+                    <button type="submit" class="btn btn-success btn-sm">Réserver</button>
+                </form>
+            </div>
+            {% else %}
+            <p>Aucun créneau disponible pour le moment.</p>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="col-md-5">
+        <h3>Mes Rendez-vous</h3>
+        <ul class="list-group">
+            {% for b in my_bookings %}
+            <li class="list-group-item">Le {{ b.slot.start_time.strftime('%d/%m/%Y') }} avec {{ b.slot.youth.name }}</li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endblock %}
