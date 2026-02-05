@@ -2,18 +2,31 @@ import os
 from datetime import datetime
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user, login_manager
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'generation_secret_key_123'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///generation.db'
+
+# --- CONFIGURATION DE PRODUCTION / LOCALE ---
+
+# 1. Gestion de la Clé Secrète
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-a-changer-en-local')
+
+# 2. Gestion de la Base de Données (Postgres sur Render, SQLite en local)
+db_url = os.environ.get('DATABASE_URL', 'sqlite:///generation.db')
+
+# Petit fix indispensable pour SQLAlchemy et Render
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql://", 1)
+
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db = SQLAlchemy(app)
-login_manager = LoginManager(app)
-login_manager.login_view = 'login'
 
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'login'
 
 # --- MODÈLES ---
 
