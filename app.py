@@ -71,13 +71,22 @@ def get_availabilities():
 @app.route('/api/bookings', methods=['POST'])
 @login_required
 def create_booking_api():
-    data = request.get_json() or request.form
+    # Le paramètre silent=True empêche l'erreur 415 si ce n'est pas du JSON
+    data = request.get_json(silent=True) or request.form
+
     slot_id = data.get('availability_id')
+    if not slot_id:
+        return jsonify({"error": "ID de créneau manquant"}), 400
+
     slot = Availability.query.get_or_404(slot_id)
 
     if slot.is_booked:
-        return jsonify({"error": "Déjà réservé"}), 400
+        if request.is_json:
+            return jsonify({"error": "Déjà réservé"}), 400
+        flash("Ce créneau est déjà réservé.", "danger")
+        return redirect(url_for('dashboard'))
 
+    # Création de la réservation
     booking = Booking(availability_id=slot.id, senior_id=current_user.id)
     slot.is_booked = True
     db.session.add(booking)
@@ -85,10 +94,14 @@ def create_booking_api():
 
     # Notification simulée
     youth = User.query.get(slot.youth_id)
-    notify_user(youth.email,
-                f"Bonjour {youth.name}, le senior {current_user.name} a réservé votre créneau du {slot.start_time}.")
+    notify_user(youth.email, f"Bonjour {youth.name}, le senior {current_user.name} a réservé votre créneau.")
 
-    return jsonify({"message": "Réservation confirmée"}), 201
+    # Gestion de la réponse selon la source (API vs Formulaire)
+    if request.is_json:
+        return jsonify({"message": "Réservation confirmée"}), 201
+
+    flash("Réservation confirmée avec succès !", "success")
+    return redirect(url_for('dashboard'))
 
 
 # --- ROUTES FRONTEND ---
