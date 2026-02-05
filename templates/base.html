@@ -16,6 +16,11 @@
             <a class="navbar-brand fw-bold" href="/">GénérIAtion</a>
             <div class="navbar-nav ms-auto">
                 {% if current_user.is_authenticated %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('view_profile', user_id=current_user.id) }}">
+                            👤 Mon Profil
+                        </a>
+                    </li>
                     <a class="nav-link" href="{{ url_for('dashboard') }}">Tableau de bord</a>
                     <a class="nav-link" href="{{ url_for('logout') }}">Déconnexion</a>
                 {% else %}
