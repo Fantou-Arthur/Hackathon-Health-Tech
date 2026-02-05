@@ -29,8 +29,11 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 with app.app_context():
-    db.create_all()
-    print("Base de données initialisée (Tables créées) !")
+    try:
+        db.create_all()
+        print("✅ Tables créées ou déjà existantes dans PostgreSQL.")
+    except Exception as e:
+        print(f"❌ Erreur lors de la création des tables : {e}")
 
 # --- MODÈLES ---
 
