@@ -8,13 +8,10 @@ from werkzeug.security import generate_password_hash, check_password_hash
 app = Flask(__name__)
 
 # --- CONFIGURATION ---
-
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-key-a-changer-en-local')
-
 db_url = os.environ.get('DATABASE_URL', 'sqlite:///generation.db')
 if db_url.startswith("postgres://"):
     db_url = db_url.replace("postgres://", "postgresql://", 1)
-
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
@@ -25,7 +22,7 @@ login_manager.init_app(app)
 login_manager.login_view = 'login'
 
 
-# --- MODÈLES (Définis AVANT la création de la base) ---
+# --- MODÈLES ---
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -49,111 +46,57 @@ class Booking(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     availability_id = db.Column(db.Integer, db.ForeignKey('availability.id'), nullable=False)
     senior_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    description = db.Column(db.Text, nullable=True)  # AJOUT : Note facultative
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     senior = db.relationship('User', foreign_keys=[senior_id])
 
 
-# --- INITIALISATION DE LA BASE (C'est ICI que ça se passe !) ---
-
+# --- INITIALISATION DE LA BASE ---
 with app.app_context():
     try:
-        # Maintenant que les classes User, Availability et Booking sont lues,
-        # SQLAlchemy sait exactement quelles tables créer.
         db.create_all()
-        print("🚀 Tables initialisées avec succès dans la base de données.")
+        print("🚀 Base de données synchronisée avec succès.")
     except Exception as e:
-        print(f"❌ Erreur lors de l'initialisation : {e}")
+        print(f"❌ Erreur initialisation : {e}")
 
-
-# --- LOGIQUE D'AUTH ET OUTILS ---
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
 
 
-def notify_user(user_email, message):
-    print(f"\n[NOTIF EMAIL] Vers: {user_email} | Message: {message}\n")
-
-
 # --- ROUTES API ---
-
-@app.route('/api/availabilities', methods=['GET'])
-def get_availabilities():
-    slots = Availability.query.filter_by(is_booked=False).all()
-    return jsonify([{
-        "id": s.id,
-        "youth": User.query.get(s.youth_id).name,
-        "start_time": s.start_time.strftime("%Y-%m-%d %H:%M")
-    } for s in slots])
-
 
 @app.route('/api/bookings', methods=['POST'])
 @login_required
 def create_booking_api():
     data = request.get_json(silent=True) or request.form
     slot_id = data.get('availability_id')
+    booking_desc = data.get('description', '')  # Récupération de la description
+
     slot = Availability.query.get_or_404(slot_id)
     if slot.is_booked:
         if request.is_json: return jsonify({"error": "Déjà réservé"}), 400
-        flash("Déjà réservé.", "danger")
+        flash("Ce créneau est déjà pris.", "danger")
         return redirect(url_for('dashboard'))
 
-    booking = Booking(availability_id=slot.id, senior_id=current_user.id)
+    # Création avec la description
+    booking = Booking(
+        availability_id=slot.id,
+        senior_id=current_user.id,
+        description=booking_desc
+    )
     slot.is_booked = True
     db.session.add(booking)
     db.session.commit()
 
-    youth = User.query.get(slot.youth_id)
-    notify_user(youth.email, f"Réservation par {current_user.name}")
-
-    if request.is_json: return jsonify({"message": "OK"}), 201
-    flash("Réservé !", "success")
+    flash("Réservation confirmée !", "success")
     return redirect(url_for('dashboard'))
 
 
-# --- ROUTES PAGES ---
-
+# --- ROUTES PAGES (STUB) ---
 @app.route('/')
-def index():
-    return render_template('index.html')
-
-
-@app.route('/profile/<int:user_id>')
-@login_required
-def view_profile(user_id):
-    user = User.query.get_or_404(user_id)
-    return render_template('profile.html', user=user)
-
-
-@app.route('/profile/edit', methods=['GET', 'POST'])
-@login_required
-def edit_profile():
-    if request.method == 'POST':
-        current_user.name = request.form['name']
-        current_user.bio = request.form['bio']
-        db.session.commit()
-        flash("Profil mis à jour", "success")
-        return redirect(url_for('dashboard'))
-    return render_template('edit_profile.html')
-
-
-@app.route('/register', methods=['GET', 'POST'])
-def register():
-    if request.method == 'POST':
-        hashed_pw = generate_password_hash(request.form['password'], method='pbkdf2:sha256')
-        new_user = User(
-            name=request.form['name'],
-            email=request.form['email'],
-            password_hash=hashed_pw,
-            role=request.form['role'],
-            bio=request.form['bio']
-        )
-        db.session.add(new_user)
-        db.session.commit()
-        flash("Compte créé !", "success")
-        return redirect(url_for('login'))
-    return render_template('register.html')
+def index(): return render_template('index.html')
 
 
 @app.route('/login', methods=['GET', 'POST'])
@@ -163,15 +106,22 @@ def login():
         if user and check_password_hash(user.password_hash, request.form['password']):
             login_user(user)
             return redirect(url_for('dashboard'))
-        flash("Erreur email/password", "danger")
+        flash("Identifiants incorrects", "danger")
     return render_template('login.html')
 
 
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('index'))
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        hashed_pw = generate_password_hash(request.form['password'], method='pbkdf2:sha256')
+        new_user = User(
+            name=request.form['name'], email=request.form['email'],
+            password_hash=hashed_pw, role=request.form['role'], bio=request.form['bio']
+        )
+        db.session.add(new_user)
+        db.session.commit()
+        return redirect(url_for('login'))
+    return render_template('register.html')
 
 
 @app.route('/dashboard')
@@ -195,6 +145,20 @@ def add_availability():
         db.session.add(new_slot)
         db.session.commit()
     return redirect(url_for('dashboard'))
+
+
+@app.route('/profile/<int:user_id>')
+@login_required
+def view_profile(user_id):
+    user = User.query.get_or_404(user_id)
+    return render_template('profile.html', user=user)
+
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
 
 
 if __name__ == '__main__':

@@ -2,55 +2,52 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Bienvenue, {{ current_user.name }} <span class="badge bg-info">Senior</span></h2>
-    <a href="{{ url_for('edit_profile') }}" class="btn btn-outline-primary">Modifier mon profil</a>
 </div>
-
-<hr>
 
 <div class="row">
     <div class="col-md-7">
-        <h3 class="mb-3">Créneaux disponibles</h3>
+        <h3>Créneaux disponibles</h3>
         <div class="list-group">
             {% for slot in available_slots %}
-            <div class="list-group-item d-flex justify-content-between align-items-center card-custom mb-2 p-3">
-                <div>
-                    <a href="{{ url_for('view_profile', user_id=slot.youth.id) }}" class="fw-bold text-decoration-none">
-                        🚀 {{ slot.youth.name }}
-                    </a>
-                    <br>
-                    <small class="text-muted">Propose le : {{ slot.start_time.strftime('%d/%m/%Y à %H:%M') }}</small>
+            <div class="list-group-item card-custom mb-3 p-3">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <a href="{{ url_for('view_profile', user_id=slot.youth.id) }}" class="fw-bold text-decoration-none">
+                            🚀 {{ slot.youth.name }}
+                        </a>
+                        <br>
+                        <small class="text-muted">Le {{ slot.start_time.strftime('%d/%m/%Y à %H:%M') }}</small>
+                    </div>
                 </div>
 
                 <form action="{{ url_for('create_booking_api') }}" method="POST">
                     <input type="hidden" name="availability_id" value="{{ slot.id }}">
-                    <button type="submit" class="btn btn-success btn-sm px-3">Réserver</button>
+                    <div class="mb-2">
+                        <input type="text" name="description" class="form-control form-control-sm" placeholder="Ajouter un message pour le jeune (facultatif)...">
+                    </div>
+                    <button type="submit" class="btn btn-success btn-sm w-100">Confirmer la réservation</button>
                 </form>
             </div>
             {% else %}
-            <div class="alert alert-light border">Aucun créneau disponible pour le moment. Revenez plus tard !</div>
+            <p class="text-muted">Aucun créneau disponible pour le moment.</p>
             {% endfor %}
         </div>
     </div>
 
     <div class="col-md-5">
-        <h3 class="mb-3">Mes Rendez-vous</h3>
-        <div class="card card-custom">
-            <ul class="list-group list-group-flush">
-                {% for b in my_bookings %}
-                <li class="list-group-item py-3">
-                    <div class="d-flex w-100 justify-content-between">
-                        <h6 class="mb-1">RDV avec
-                            <a href="{{ url_for('view_profile', user_id=b.slot.youth.id) }}" class="text-primary">
-                                {{ b.slot.youth.name }}
-                            </a>
-                        </h6>
-                    </div>
-                    <p class="mb-1 text-muted small">Le {{ b.slot.start_time.strftime('%d/%m/%Y à %H:%M') }}</p>
-                </li>
-                {% else %}
-                <li class="list-group-item text-center text-muted py-4">Vous n'avez pas encore de réservations.</li>
-                {% endfor %}
-            </ul>
+        <h3>Mes Rendez-vous</h3>
+        <div class="list-group">
+            {% for b in my_bookings %}
+            <div class="list-group-item">
+                <strong>Avec {{ b.slot.youth.name }}</strong><br>
+                <small>{{ b.slot.start_time.strftime('%d/%m/%Y à %H:%M') }}</small>
+                {% if b.description %}
+                <div class="mt-1 p-2 bg-light rounded small italic">
+                    "{{ b.description }}"
+                </div>
+                {% endif %}
+            </div>
+            {% endfor %}
         </div>
     </div>
 </div>
