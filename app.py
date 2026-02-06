@@ -4,6 +4,7 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
+from sqlalchemy import text
 
 app = Flask(__name__)
 
@@ -46,16 +47,24 @@ class Booking(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     availability_id = db.Column(db.Integer, db.ForeignKey('availability.id'), nullable=False)
     senior_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    description = db.Column(db.Text, nullable=True)  # AJOUT : Note facultative
+    description = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     senior = db.relationship('User', foreign_keys=[senior_id])
 
 
-# --- INITIALISATION DE LA BASE ---
+# --- INITIALISATION DE LA BASE AVEC MIGRATION MANUELLE ---
 with app.app_context():
     try:
         db.create_all()
-        print("🚀 Base de données synchronisée avec succès.")
+        # Senior Hack : On force l'ajout de la colonne si on est sur PostgreSQL (Render)
+        if "postgresql" in app.config['SQLALCHEMY_DATABASE_URI']:
+            try:
+                db.session.execute(text('ALTER TABLE booking ADD COLUMN IF NOT EXISTS description TEXT'))
+                db.session.commit()
+                print("✅ Colonne 'description' vérifiée/ajoutée sur PostgreSQL.")
+            except Exception:
+                db.session.rollback()
+        print("🚀 Base de données synchronisée.")
     except Exception as e:
         print(f"❌ Erreur initialisation : {e}")
 
@@ -72,20 +81,15 @@ def load_user(user_id):
 def create_booking_api():
     data = request.get_json(silent=True) or request.form
     slot_id = data.get('availability_id')
-    booking_desc = data.get('description', '')  # Récupération de la description
+    booking_desc = data.get('description', '')
 
     slot = Availability.query.get_or_404(slot_id)
     if slot.is_booked:
         if request.is_json: return jsonify({"error": "Déjà réservé"}), 400
-        flash("Ce créneau est déjà pris.", "danger")
+        flash("Ce créneau est déjà réservé.", "danger")
         return redirect(url_for('dashboard'))
 
-    # Création avec la description
-    booking = Booking(
-        availability_id=slot.id,
-        senior_id=current_user.id,
-        description=booking_desc
-    )
+    booking = Booking(availability_id=slot.id, senior_id=current_user.id, description=booking_desc)
     slot.is_booked = True
     db.session.add(booking)
     db.session.commit()
@@ -94,20 +98,32 @@ def create_booking_api():
     return redirect(url_for('dashboard'))
 
 
-# --- ROUTES PAGES (STUB) ---
+@app.route('/api/availabilities', methods=['GET'])
+def get_availabilities():
+    slots = Availability.query.filter_by(is_booked=False).all()
+    return jsonify([{
+        "id": s.id,
+        "youth": User.query.get(s.youth_id).name,
+        "start_time": s.start_time.strftime("%Y-%m-%d %H:%M")
+    } for s in slots])
+
+
+# --- ROUTES PAGES ---
+
 @app.route('/')
 def index(): return render_template('index.html')
 
 
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        user = User.query.filter_by(email=request.form['email']).first()
-        if user and check_password_hash(user.password_hash, request.form['password']):
-            login_user(user)
-            return redirect(url_for('dashboard'))
-        flash("Identifiants incorrects", "danger")
-    return render_template('login.html')
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    if current_user.role == 'jeune':
+        my_slots = Availability.query.filter_by(youth_id=current_user.id).all()
+        return render_template('dashboard_jeune.html', slots=my_slots)
+    else:
+        available_slots = Availability.query.filter_by(is_booked=False).all()
+        my_bookings = Booking.query.filter_by(senior_id=current_user.id).all()
+        return render_template('dashboard_senior.html', available_slots=available_slots, my_bookings=my_bookings)
 
 
 @app.route('/register', methods=['GET', 'POST'])
@@ -124,16 +140,41 @@ def register():
     return render_template('register.html')
 
 
-@app.route('/dashboard')
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        user = User.query.filter_by(email=request.form['email']).first()
+        if user and check_password_hash(user.password_hash, request.form['password']):
+            login_user(user)
+            return redirect(url_for('dashboard'))
+        flash("Email ou mot de passe incorrect", "danger")
+    return render_template('login.html')
+
+
+@app.route('/logout')
 @login_required
-def dashboard():
-    if current_user.role == 'jeune':
-        my_slots = Availability.query.filter_by(youth_id=current_user.id).all()
-        return render_template('dashboard_jeune.html', slots=my_slots)
-    else:
-        available_slots = Availability.query.filter_by(is_booked=False).all()
-        my_bookings = Booking.query.filter_by(senior_id=current_user.id).all()
-        return render_template('dashboard_senior.html', available_slots=available_slots, my_bookings=my_bookings)
+def logout():
+    logout_user()
+    return redirect(url_for('index'))
+
+
+@app.route('/profile/<int:user_id>')
+@login_required
+def view_profile(user_id):
+    user = User.query.get_or_404(user_id)
+    return render_template('profile.html', user=user)
+
+
+@app.route('/profile/edit', methods=['GET', 'POST'])
+@login_required
+def edit_profile():
+    if request.method == 'POST':
+        current_user.name = request.form['name']
+        current_user.bio = request.form['bio']
+        db.session.commit()
+        flash("Profil mis à jour", "success")
+        return redirect(url_for('dashboard'))
+    return render_template('edit_profile.html')
 
 
 @app.route('/add_availability', methods=['POST'])
@@ -145,20 +186,6 @@ def add_availability():
         db.session.add(new_slot)
         db.session.commit()
     return redirect(url_for('dashboard'))
-
-
-@app.route('/profile/<int:user_id>')
-@login_required
-def view_profile(user_id):
-    user = User.query.get_or_404(user_id)
-    return render_template('profile.html', user=user)
-
-
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    return redirect(url_for('index'))
 
 
 if __name__ == '__main__':
