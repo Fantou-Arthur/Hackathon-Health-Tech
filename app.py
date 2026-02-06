@@ -52,16 +52,14 @@ class Booking(db.Model):
     senior = db.relationship('User', foreign_keys=[senior_id])
 
 
-# --- INITIALISATION DE LA BASE AVEC MIGRATION MANUELLE ---
+# --- INITIALISATION DE LA BASE ---
 with app.app_context():
     try:
         db.create_all()
-        # Senior Hack : On force l'ajout de la colonne si on est sur PostgreSQL (Render)
         if "postgresql" in app.config['SQLALCHEMY_DATABASE_URI']:
             try:
                 db.session.execute(text('ALTER TABLE booking ADD COLUMN IF NOT EXISTS description TEXT'))
                 db.session.commit()
-                print("✅ Colonne 'description' vérifiée/ajoutée sur PostgreSQL.")
             except Exception:
                 db.session.rollback()
         print("🚀 Base de données synchronisée.")
@@ -94,6 +92,9 @@ def create_booking_api():
     db.session.add(booking)
     db.session.commit()
 
+    if request.is_json:
+        return jsonify({"status": "success", "message": "Réservation confirmée"})
+
     flash("Réservation confirmée !", "success")
     return redirect(url_for('dashboard'))
 
@@ -106,6 +107,23 @@ def get_availabilities():
         "youth": User.query.get(s.youth_id).name,
         "start_time": s.start_time.strftime("%Y-%m-%d %H:%M")
     } for s in slots])
+
+
+@app.route('/api/profile/<int:user_id>', methods=['GET'])
+@login_required
+def get_profile_api(user_id):
+    """
+    Endpoint API pur pour assurer la compatibilité avec les serveurs externes
+    qui attendent strictement du JSON sur un chemin API.
+    """
+    user = User.query.get_or_404(user_id)
+    return jsonify({
+        "id": user.id,
+        "name": user.name,
+        "email": user.email,
+        "role": user.role,
+        "bio": user.bio
+    })
 
 
 # --- ROUTES PAGES ---
@@ -161,7 +179,26 @@ def logout():
 @app.route('/profile/<int:user_id>')
 @login_required
 def view_profile(user_id):
+    """
+    MODIFICATION API FIRST :
+    Retourne du JSON si demandé par un outil externe,
+    sinon affiche la page de profil classique.
+    """
     user = User.query.get_or_404(user_id)
+
+    # Détection de la demande de données (API First)
+    if (request.headers.get('Accept') == 'application/json' or
+            request.args.get('format') == 'json' or
+            request.is_json):
+        return jsonify({
+            "id": user.id,
+            "name": user.name,
+            "email": user.email,
+            "role": user.role,
+            "bio": user.bio
+        })
+
+    # Rendu HTML classique pour le navigateur
     return render_template('profile.html', user=user)
 
 
