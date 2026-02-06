@@ -29,7 +29,8 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(200), nullable=False)
+    # On garde le champ password_hash pour la compatibilité, mais il devient optionnel
+    password_hash = db.Column(db.String(200), nullable=True)
     role = db.Column(db.String(10), nullable=False)
     bio = db.Column(db.Text, nullable=True)
     availabilities = db.relationship('Availability', backref='youth', lazy=True)
@@ -59,6 +60,8 @@ with app.app_context():
         if "postgresql" in app.config['SQLALCHEMY_DATABASE_URI']:
             try:
                 db.session.execute(text('ALTER TABLE booking ADD COLUMN IF NOT EXISTS description TEXT'))
+                # Migration pour rendre le mot de passe optionnel si nécessaire
+                db.session.execute(text('ALTER TABLE user ALTER COLUMN password_hash DROP NOT NULL'))
                 db.session.commit()
             except Exception:
                 db.session.rollback()
@@ -112,10 +115,6 @@ def get_availabilities():
 @app.route('/api/profile/<int:user_id>', methods=['GET'])
 @login_required
 def get_profile_api(user_id):
-    """
-    Endpoint API pur pour assurer la compatibilité avec les serveurs externes
-    qui attendent strictement du JSON sur un chemin API.
-    """
     user = User.query.get_or_404(user_id)
     return jsonify({
         "id": user.id,
@@ -147,10 +146,13 @@ def dashboard():
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        hashed_pw = generate_password_hash(request.form['password'], method='pbkdf2:sha256')
+        # Le mot de passe n'est plus requis, on met une valeur par défaut ou vide
         new_user = User(
-            name=request.form['name'], email=request.form['email'],
-            password_hash=hashed_pw, role=request.form['role'], bio=request.form['bio']
+            name=request.form['name'],
+            email=request.form['email'],
+            password_hash=None,  # Plus besoin de hash
+            role=request.form['role'],
+            bio=request.form['bio']
         )
         db.session.add(new_user)
         db.session.commit()
@@ -160,12 +162,19 @@ def register():
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    """
+    AUTHENTIFICATION SIMPLIFIÉE :
+    L'utilisateur se connecte uniquement avec son adresse email.
+    """
     if request.method == 'POST':
-        user = User.query.filter_by(email=request.form['email']).first()
-        if user and check_password_hash(user.password_hash, request.form['password']):
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+
+        if user:
             login_user(user)
             return redirect(url_for('dashboard'))
-        flash("Email ou mot de passe incorrect", "danger")
+
+        flash("Aucun compte trouvé avec cet email", "danger")
     return render_template('login.html')
 
 
@@ -179,14 +188,8 @@ def logout():
 @app.route('/profile/<int:user_id>')
 @login_required
 def view_profile(user_id):
-    """
-    MODIFICATION API FIRST :
-    Retourne du JSON si demandé par un outil externe,
-    sinon affiche la page de profil classique.
-    """
     user = User.query.get_or_404(user_id)
 
-    # Détection de la demande de données (API First)
     if (request.headers.get('Accept') == 'application/json' or
             request.args.get('format') == 'json' or
             request.is_json):
@@ -198,7 +201,6 @@ def view_profile(user_id):
             "bio": user.bio
         })
 
-    # Rendu HTML classique pour le navigateur
     return render_template('profile.html', user=user)
 
 
